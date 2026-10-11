@@ -1,0 +1,19 @@
+{
+  "name": "dz1",
+  "version": "1.0.0",
+  "description": "",
+  "license": "MIT",
+  "author": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.10",
+    "@flydotio/node-demo": "^0.2.1"
+  },
+  "dependencies": {
+    "ejs": "^6.0.1"
+  }
+}

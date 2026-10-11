@@ -1,0 +1,20 @@
+/node_modules/
+
+# OpenTofu / Terraform working files and state
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Credentials - never commit these
+clouds.yaml
+secure.yaml
+*openrc*
+*.pem
+
+# Personal values (your IP address etc.)
+terraform.tfvars
+*.tfvars
+*.auto.tfvars
+!terraform.tfvars.example

@@ -1,0 +1,18 @@
+/.git
+/node_modules
+.dockerignore
+.env
+Dockerfile
+fly.toml
+
+# OpenTofu configuration, local state and credentials must never enter the image.
+.terraform/
+*.tf
+*.tfvars
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+clouds.yaml
+secure.yaml
+*openrc*
+*.pem

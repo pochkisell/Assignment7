@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Week 7 assignment: Infrastructure as Code with OpenTofu on CSC cPouta."
+    />
+    <title>Week 7 — Infrastructure as Code</title>
+    <link href="/index.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <main class="document">
+      <h1>Week 7 — Infrastructure as Code</h1>
+
+      <section id="part-a">
+        <h2>Part A — Questions</h2>
+
+        <article>
+          <h3>1. What is Infrastructure as Code?</h3>
+          <p>
+            Infrastructure as Code (IaC) means describing infrastructure in
+            machine-readable files and using tools to create and manage it.
+            Instead of repeating console clicks from memory, I can define the
+            VM, network port, firewall rules and floating IP as configuration.
+          </p>
+          <p>
+            For the Week 1 server, a manual rebuild meant remembering each
+            choice and repeating setup steps. Here, <code>main.tf</code>
+            describes the cPouta resources and <code>cloud-init.yaml</code>
+            installs Apache and writes the page at first boot. The setup is
+            reviewable and repeatable, and a plan makes proposed infrastructure
+            changes visible before applying them.
+          </p>
+          <p>
+            Source:
+            <a href="https://opentofu.org/docs/intro/" target="_blank" rel="noreferrer">OpenTofu documentation</a>.
+          </p>
+        </article>
+
+        <article>
+          <h3>2. Declarative, imperative and idempotency</h3>
+          <p>
+            Declarative automation describes the desired end state; the tool
+            determines which actions are needed. This OpenTofu configuration
+            declares that the VM should use a particular network port and that
+            the security group should have specific rules. Imperative
+            automation gives ordered commands, such as installing Apache,
+            writing the page and then starting the service. The cloud-init
+            <code>runcmd</code> section contains imperative steps.
+          </p>
+          <p>
+            Idempotency means that applying the same desired configuration
+            repeatedly should converge on the same result instead of creating
+            duplicate resources. It helps make retries and drift correction
+            safer. It does not mean every change is in-place: a
+            replacement-only attribute may still require a resource to be
+            recreated.
+          </p>
+          <p>
+            Source:
+            <a href="https://opentofu.org/docs/intro/core-workflow/" target="_blank" rel="noreferrer">OpenTofu core workflow</a>.
+          </p>
+        </article>
+
+        <article>
+          <h3>3. What is the state file for?</h3>
+          <p>
+            OpenTofu state maps resources in the configuration to real cloud
+            objects and records attributes needed for later plans. It helps
+            OpenTofu determine what exists, what has changed and which
+            dependencies matter.
+          </p>
+          <p>
+            State should not be committed to Git because it may contain
+            sensitive values and detailed infrastructure metadata. Teams
+            usually share state through a secured remote backend with access
+            controls, encryption and locking. This exercise uses local state,
+            which must remain private and ignored by Git.
+          </p>
+          <p>
+            Source:
+            <a href="https://opentofu.org/docs/language/state/" target="_blank" rel="noreferrer">OpenTofu state documentation</a>.
+          </p>
+        </article>
+
+        <article>
+          <h3>4. Provisioning, cloud-init and Ansible</h3>
+          <p>
+            Provisioning creates infrastructure. In this project, OpenTofu
+            requests the key pair, security group, network port, VM and floating
+            IP from OpenStack. Configuration management installs software and
+            prepares a machine. cloud-init is delivered as VM user data and
+            configures the new VM at first boot: it installs Apache, writes
+            <code>/var/www/html/index.html</code> and enables the service.
+          </p>
+          <p>
+            Ansible is another configuration-management tool. It is useful for
+            repeatable configuration of existing machines and can be combined
+            with OpenTofu: provision the VM first, then configure it with
+            Ansible. cloud-init is a convenient way to bootstrap a new cloud
+            instance.
+          </p>
+          <p>
+            Source:
+            <a href="https://cloudinit.readthedocs.io/en/latest/" target="_blank" rel="noreferrer">cloud-init documentation</a>.
+          </p>
+        </article>
+      </section>
+
+      <section id="part-b">
+        <h2>Part B — Rebuild the VM as Code</h2>
+        <p>
+          The OpenTofu configuration looks up the existing CSC project network,
+          uploads only my SSH public key, and creates a security group, network
+          port, VM and floating IP. The SSH rule is restricted to my IPv4 CIDR;
+          HTTP and HTTPS rules allow traffic from the internet. The port
+          connects the VM to the project network and security group. The
+          floating IP is associated with that port. The project network is a
+          data source, so OpenTofu uses it but does not create or destroy it.
+        </p>
+        <p>
+          <code>versions.tf</code> selects the OpenStack provider.
+          <code>variables.tf</code> declares the inputs; the project network,
+          SSH CIDR and student name have no defaults so they must be supplied
+          deliberately. In particular, SSH should be limited to my own public
+          IPv4 address with <code>/32</code>. <code>cloud-init.yaml</code>
+          installs Apache and writes the page from the supplied name and
+          message. <code>outputs.tf</code> prints the floating IP and page URL.
+          <code>terraform.tfvars.example</code> shows the required values;
+          personal <code>terraform.tfvars</code>, credentials, private keys and
+          state files must not be committed.
+        </p>
+
+        <h3>Experiments</h3>
+        <p>
+          For each experiment, record the prediction before running the
+          command, then replace the pending result with what the plan, apply
+          and browser actually showed.
+        </p>
+
+        <article>
+          <h3>1. Change — Option A: page message</h3>
+          <p><strong>Prediction:</strong> Changing <code>page_message</code> changes VM <code>user_data</code>. I expect the provider to replace the VM because cloud-init applies user data at first boot. The floating IP is associated with the network port, so I will check whether it stays the same.</p>
+          <p><strong>Result:</strong> Pending the cPouta plan and apply. Record the resource counts, the replacement marker and attribute, the page text, and the IP before and after.</p>
+          <p><strong>Explanation:</strong> Add the observed plan line and explain why the provider handles the changed attribute as it does. Record whether the floating IP changed and that it is attached to the port.</p>
+        </article>
+
+        <article>
+          <h3>2. Change — Option B: HTTPS rule</h3>
+          <p><strong>Prediction:</strong> I expect one security-group rule to be added and the VM to remain unchanged. Opening TCP 443 does not configure Apache with TLS or a certificate, so I do not expect the page to work over HTTPS.</p>
+          <p><strong>Result:</strong> Pending the plan, apply and browser check. Record the resource counts and what happened at both HTTP and HTTPS URLs.</p>
+          <p><strong>Explanation:</strong> Compare the firewall-only change with Option A's VM user-data change. Explain whether allowing port 443 was enough to make HTTPS work.</p>
+        </article>
+
+        <article>
+          <h3>3. Drift</h3>
+          <p><strong>Prediction:</strong> If I manually delete the managed HTTP rule, I expect the plan to detect the missing state-tracked resource and propose recreating it. If I add an undeclared TCP 8080 rule manually, I expect OpenTofu not to remove that unmanaged rule.</p>
+          <p><strong>Result:</strong> Pending both plans and browser checks. Record what happened after deleting HTTP, after applying its repair, and after adding TCP 8080.</p>
+          <p><strong>Explanation:</strong> Explain the difference using the resources recorded in state. Remove the manually added 8080 rule when the experiment is complete.</p>
+        </article>
+
+        <article>
+          <h3>4. Destroy and rebuild</h3>
+          <p><strong>Prediction:</strong> With HTTPS enabled, eight managed resources should be destroyed; the looked-up project network should survive. Dependencies determine the destroy order, and the public pool may assign a different IP after rebuilding.</p>
+          <p><strong>Result:</strong> Pending the destroy and apply runs. Record the actual order, whether the project network survived, the new IP, how long rebuilding took, and whether the page worked without manual setup.</p>
+          <p><strong>Explanation:</strong> Explain the observed order using resource references, why the data-source network remains, and how the output makes a changing IP easy to find.</p>
+        </article>
+
+        <h3>Evidence</h3>
+        <p>
+          Add screenshots in <code>public/evidence/</code>. Use the filenames
+          listed below. The page displays an image when its file exists;
+          otherwise it shows that the screenshot is still missing. Review each
+          image and hide credentials, private keys and personal variable
+          values before publishing.
+        </p>
+
+        <ol class="evidence-list">
+          <% evidence.forEach((item) => { %>
+            <li class="evidence-item">
+              <strong><%= item.title %>.</strong>
+              <%= item.description %>
+              <ul class="evidence-files">
+                <% item.images.forEach((image) => { %>
+                  <li>
+                    <code>public/evidence/<%= image.filename %></code>
+                    <% if (image.exists) { %>
+                      <a class="evidence-image-link" href="<%= image.src %>" target="_blank" rel="noreferrer">
+                        <img class="evidence-image" src="<%= image.src %>" alt="<%= image.alt %>" loading="lazy" />
+                      </a>
+                    <% } else { %>
+                      <span class="missing-evidence">Screenshot not added yet.</span>
+                    <% } %>
+                  </li>
+                <% }); %>
+              </ul>
+            </li>
+          <% }); %>
+        </ol>
+      </section>
+    </main>
+  </body>
+</html>
